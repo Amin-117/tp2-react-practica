@@ -1,33 +1,40 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export const useFetch = (url) => {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!url) return;
 
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(url);
-        const json = await response.json();
-        if (json.success) {
-          setData(json.data);
-        } else {
-          setError(json.message || "Error obteniendo datos");
-        }
-      } catch (err) {
-        setError("Error conectando con el servidor");
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    };
-
-    fetchData();
+      const json = await response.json();
+      if (json.success) {
+        setData(json.data);
+      } else {
+        setError(json.message || "Error en la respuesta del servidor");
+      }
+    } catch (err) {
+      setError(err.message || "Error conectando con el servidor");
+    } finally {
+      setLoading(false);
+    }
   }, [url]);
 
-  return { data, loading, error };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const refetch = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, refetch };
 };

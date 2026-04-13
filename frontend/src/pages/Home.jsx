@@ -1,49 +1,41 @@
 import { useState, useEffect } from "react";
 import { usePokemons } from "../hooks/usePokemons";
+import { useFetch } from "../hooks/useFetch";
 import { SearchBar } from "../components/SearchBar";
 import { PokemonForm } from "../components/PokemonForm";
 import { PokemonList } from "../components/PokemonList";
 
+const API_URL = "http://localhost:5000/pokemons";
+
 export const Home = () => {
-  const [pokemons, setPokemons] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const { getPokemons, createPokemon, updatePokemon, deletePokemon } =
-    usePokemons();
-
-  const fetchPokemons = async (term = "") => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await getPokemons(term);
-      if (result.success) {
-        setPokemons(result.data);
-      } else {
-        setError(result.message || "Error obteniendo pokemons");
-      }
-    } catch (err) {
-      setError("Error conectando con el servidor");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { createPokemon, updatePokemon, deletePokemon } = usePokemons();
 
   useEffect(() => {
-    fetchPokemons();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const url = debouncedSearchTerm ? `${API_URL}?nombre=${debouncedSearchTerm}` : API_URL;
+  const { data: pokemons, loading: fetchLoading, error: fetchError, refetch } = useFetch(url);
 
   const handleSearch = (term) => {
     setSearchTerm(term);
-    fetchPokemons(term);
   };
 
   const handleCreatePokemon = async (pokemonData) => {
     setLoading(true);
+    setError(null);
     try {
       const result = await createPokemon(pokemonData);
       if (result.success) {
-        setPokemons((prev) => [...prev, result.data]);
+        refetch();
       } else {
         setError(result.message || "Error creando pokemon");
       }
@@ -57,12 +49,11 @@ export const Home = () => {
 
   const handleUpdatePokemon = async (id, pokemonData) => {
     setLoading(true);
+    setError(null);
     try {
       const result = await updatePokemon(id, pokemonData);
       if (result.success) {
-        setPokemons((prev) =>
-          prev.map((p) => (p._id === id ? result.data : p)),
-        );
+        refetch();
       } else {
         setError(result.message || "Error actualizando pokemon");
       }
@@ -76,10 +67,11 @@ export const Home = () => {
 
   const handleDeletePokemon = async (id) => {
     setLoading(true);
+    setError(null);
     try {
       const result = await deletePokemon(id);
       if (result.success) {
-        setPokemons((prev) => prev.filter((p) => p._id !== id));
+        refetch();
       } else {
         setError(result.message || "Error eliminando pokemon");
       }
@@ -98,7 +90,7 @@ export const Home = () => {
         <p>Gestiona tu colección de pokemons</p>
       </header>
 
-      {error && <div className="error-message">{error}</div>}
+      {(error || fetchError) && <div className="error-message">{error || fetchError}</div>}
 
       <div className="container">
         <div className="left-section">
@@ -109,16 +101,13 @@ export const Home = () => {
         <div className="right-section">
           <h2>Mis Pokemons</h2>
           <SearchBar onSearch={handleSearch} />
-          {loading && pokemons.length === 0 ? (
-            <div className="loading">Cargando...</div>
-          ) : (
-            <PokemonList
-              pokemons={pokemons}
-              onDelete={handleDeletePokemon}
-              onUpdate={handleUpdatePokemon}
-              isLoading={loading}
-            />
-          )}
+          {fetchLoading && <div className="loading">Cargando...</div>}
+          <PokemonList
+            pokemons={pokemons}
+            onDelete={handleDeletePokemon}
+            onUpdate={handleUpdatePokemon}
+            isLoading={loading}
+          />
         </div>
       </div>
     </div>
