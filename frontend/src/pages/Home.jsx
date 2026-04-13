@@ -1,38 +1,94 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { usePokemons } from "../hooks/usePokemons";
 import { SearchBar } from "../components/SearchBar";
 import { PokemonForm } from "../components/PokemonForm";
 import { PokemonList } from "../components/PokemonList";
 
 export const Home = () => {
-  const {
-    pokemons,
-    loading,
-    error,
-    getPokemons,
-    createPokemon,
-    updatePokemon,
-    deletePokemon,
-  } = usePokemons();
+  const [pokemons, setPokemons] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const { getPokemons, createPokemon, updatePokemon, deletePokemon } =
+    usePokemons();
+
+  const fetchPokemons = async (term = "") => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await getPokemons(term);
+      if (result.success) {
+        setPokemons(result.data);
+      } else {
+        setError(result.message || "Error obteniendo pokemons");
+      }
+    } catch (err) {
+      setError("Error conectando con el servidor");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    getPokemons();
+    fetchPokemons();
   }, []);
 
-  const handleSearch = (searchTerm) => {
-    getPokemons(searchTerm);
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+    fetchPokemons(term);
   };
 
   const handleCreatePokemon = async (pokemonData) => {
-    return await createPokemon(pokemonData);
+    setLoading(true);
+    try {
+      const result = await createPokemon(pokemonData);
+      if (result.success) {
+        setPokemons((prev) => [...prev, result.data]);
+      } else {
+        setError(result.message || "Error creando pokemon");
+      }
+      return result;
+    } catch (err) {
+      setError("Error creando pokemon");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdatePokemon = async (id, pokemonData) => {
-    return await updatePokemon(id, pokemonData);
+    setLoading(true);
+    try {
+      const result = await updatePokemon(id, pokemonData);
+      if (result.success) {
+        setPokemons((prev) =>
+          prev.map((p) => (p._id === id ? result.data : p)),
+        );
+      } else {
+        setError(result.message || "Error actualizando pokemon");
+      }
+      return result;
+    } catch (err) {
+      setError("Error actualizando pokemon");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeletePokemon = async (id) => {
-    return await deletePokemon(id);
+    setLoading(true);
+    try {
+      const result = await deletePokemon(id);
+      if (result.success) {
+        setPokemons((prev) => prev.filter((p) => p._id !== id));
+      } else {
+        setError(result.message || "Error eliminando pokemon");
+      }
+      return result;
+    } catch (err) {
+      setError("Error eliminando pokemon");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
